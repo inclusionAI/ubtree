@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UBTree · Parallel Tree Drafting</title>
+  <meta name="description" content="UBTree: Parallel Tree Drafting via Unigram and Bigram Models for Speculative Decoding. A fully parallel tree drafter with tree-native training: 5.84–6.94× average lossless speedup on Qwen3 and 5.36× on Ling3-Flash in SGLang.">
+  <meta property="og:title" content="UBTree: Parallel Tree Drafting via Unigram and Bigram Models for Speculative Decoding">
+  <meta property="og:description" content="A unigram proposer + bigram selector that builds draft trees in parallel. 5.84–6.94× average speedup on Qwen3, 5.36× on Ling3-Flash in SGLang.">
+  <meta property="og:image" content="static/img/ubtree_diagram.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f6e50'/%3E%3Cg stroke='%23fff' stroke-width='2.2' fill='none' stroke-linecap='round'%3E%3Cpath d='M7 16 L15 9 M7 16 L15 23 M15 9 L24 6 M15 9 L24 13 M15 23 L24 23'/%3E%3C/g%3E%3Cg fill='%23fff'%3E%3Ccircle cx='7' cy='16' r='2.6'/%3E%3Ccircle cx='15' cy='9' r='2.3'/%3E%3Ccircle cx='15' cy='23' r='2.3'/%3E%3Ccircle cx='24' cy='6' r='2'/%3E%3Ccircle cx='24' cy='13' r='2'/%3E%3Ccircle cx='24' cy='23' r='2'/%3E%3C/g%3E%3C/svg%3E">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+  <link rel="stylesheet" href="static/css/style.css">
+  <script>
+    // Apply saved theme before paint.
+    try { const t = localStorage.getItem("ubtree-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+</head>
+<body>
+
+<!--
+  Numbers in charts/tables live in static/js/data.js.
+  The only remaining placeholder is the video demo (search data-ph="video-demo").
+-->
+
+<header class="topbar" id="topbar">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="UBTree home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--spruce)"/><g stroke="var(--paper)" stroke-width="2.2" fill="none" stroke-linecap="round"><path d="M7 16 L15 9 M7 16 L15 23 M15 9 L24 6 M15 9 L24 13 M15 23 L24 23"/></g><g fill="var(--paper)"><circle cx="7" cy="16" r="2.6"/><circle cx="15" cy="9" r="2.3"/><circle cx="15" cy="23" r="2.3"/><circle cx="24" cy="6" r="2"/><circle cx="24" cy="13" r="2"/><circle cx="24" cy="23" r="2"/></g></svg>
+      UBTree
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#demo">Demo</a>
+      <a href="#quickstart">Quick start</a>
+      <a href="#why">Why trees</a>
+      <a href="#method">Method</a>
+      <a href="#results">Results</a>
+      <a href="#models">Models</a>
+      <a href="#citation">Cite</a>
+    </nav>
+    <button class="icon-btn" id="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+
+<!-- =========================== HERO =========================== -->
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <h1 class="title"><span class="u">U</span><span class="b">B</span>Tree</h1>
+        <p class="subtitle">Parallel tree drafting via <em>U</em>nigram and <em>B</em>igram models for speculative decoding</p>
+
+        <p class="authors">
+          <span>Chumeng Liang<sup>1,2,*</sup></span>,
+          <span>Linxuan Wang<sup>1,3,*</sup></span>,
+          <span>Xinyu Peng<sup>1,*</sup></span>,
+          <span>Huabin Liu<sup>1</sup></span>,
+          <span>Yuxin Chen<sup>2</sup></span>,
+          <span>Ge Liu<sup>2</sup></span>,
+          <span>Guang Lin<sup>3</sup></span>,
+          <span>Qifan Song<sup>3</sup></span>,
+          <span>Jianguo Li<sup>1,†</sup></span>
+        </p>
+        <p class="affils"><sup>1</sup>Inclusion AI &nbsp;·&nbsp; <sup>2</sup>University of Illinois Urbana-Champaign &nbsp;·&nbsp; <sup>3</sup>Purdue University</p>
+        <p class="notes"><sup>*</sup>Equal contribution &nbsp; <sup>†</sup>Corresponding author</p>
+
+        <div class="links">
+          <a class="btn primary" href="https://arxiv.org/abs/2609.39972">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>
+            Paper
+          </a>
+          <a class="btn" href="https://huggingface.co/collections/inclusionAI/ubtree">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>
+            Models
+          </a>
+          <a class="btn" href="https://github.com/AsaHIXx/sglang/tree/asahi/ubtree">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-6-6-6M12 19h8"/></svg>
+            SGLang
+          </a>
+          <a class="btn" href="#citation">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h4v4H7zM7 11c0 3-1 5-3 6M15 7h4v4h-4zM15 11c0 3-1 5-3 6"/></svg>
+            BibTeX
+          </a>
+        </div>
+      </div>
+
+      <!-- Interactive draft-tree walkthrough (static/js/main.js → initTree) -->
+      <div class="treecard" id="treecard" aria-label="Interactive illustration of one UBTree drafting round">
+        <div class="tc-head">
+          <span class="tc-title">One drafting round</span>
+          <div class="seg" role="group" aria-label="Drafting mode">
+            <button type="button" data-mode="single" aria-pressed="false">Single path</button>
+            <button type="button" data-mode="tree" aria-pressed="true">UBTree</button>
+          </div>
+        </div>
+        <svg class="tc-svg" id="tc-svg" viewBox="0 0 640 330" role="img" aria-label="Candidate tokens at four draft positions with tree edges"></svg>
+        <div class="tc-steps" id="tc-steps"></div>
+        <div class="tc-readout">
+          <span id="tc-text">Press replay to watch one drafting round.</span>
+          <span class="tau" id="tc-tau"></span>
+          <button class="tc-replay" id="tc-replay" type="button">▶ Replay</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats reveal">
+      <div class="stat">
+        <div class="v">6.94<small>×</small></div>
+        <div class="k">Avg. speedup, Qwen3-8B</div>
+        <div class="d">Greedy decoding, 7 benchmarks, 1×H200</div>
+      </div>
+      <div class="stat">
+        <div class="v">28<small>/28</small></div>
+        <div class="k">Wins over DARTree</div>
+        <div class="d">Every benchmark, model size and temperature on Qwen3 instruct</div>
+      </div>
+      <div class="stat">
+        <div class="v">5.36<small>×</small></div>
+        <div class="k">Ling3-Flash 124B in SGLang</div>
+        <div class="d">vs. 4.50× for DSpark, TP4 on 4×H200</div>
+      </div>
+      <div class="stat">
+        <div class="v">+37.6<small>%</small></div>
+        <div class="k">Acceptance length at long context</div>
+        <div class="d">Over DSpark on LongBench-v2, prompts up to 260K</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =========================== TL;DR =========================== -->
+<section class="block" id="tldr" style="padding-top:40px">
+  <div class="wrap">
+    <div class="prose">
+      <p style="font-size:1.12rem">
+        Parallel drafters such as DFlash propose a whole block of draft tokens in one forward pass, but they commit to a <strong>single draft path</strong>. When the target distribution has high entropy, that path often diverges early and the rest of the block is wasted.
+        <strong>UBTree</strong> keeps drafting fully parallel while covering many plausible continuations. A <strong>unigram proposer</strong> suggests top-<i>K</i> candidates for every position at once, a lightweight <strong>bigram selector</strong> scores every adjacent candidate pair at once, and a cheap search turns those scores into a <strong>verification tree</strong>. A <strong>tree-native</strong> training recipe, combining high-temperature targets with a renormalized KL objective, teaches the selector to rank plausible alternative branches rather than only the greedy one.
+      </p>
+      <p style="font-size:1.12rem">
+        The result is a lossless <strong>5.84–6.94×</strong> average speedup on Qwen3-4B and Qwen3-8B, and <strong>5.36×</strong> on the 124B Ling3-Flash served in SGLang.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- =========================== DEMO =========================== -->
+<section class="block" id="demo">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-no">01 · Demo</span>
+      <h2>See it decode<a class="anchor" href="#demo">#</a></h2>
+      <p class="lede">Same prompt, same target model, same hardware. Left: plain autoregressive decoding. Right: UBTree speculative decoding in SGLang.</p>
+    </div>
+
+    <!--
+      TODO(coauthors) — VIDEO DEMO
+      1. Put the clips in static/video/ (e.g. ar.mp4 and ubtree.mp4, H.264, muted, ≤ 10 MB each).
+      2. In each .video-slot below, delete the .vs-empty block and uncomment the <video> tag.
+      3. Update the caption (model, GPU, prompt, measured tokens/s).
+      For a single side-by-side clip, delete one slot and drop the .video-grid class.
+    -->
+    <div class="video-grid" data-ph="video-demo">
+      <div class="video-slot">
+        <span class="vs-label">Autoregressive</span>
+        <!-- <video src="static/video/ar.mp4" autoplay muted loop playsinline preload="metadata"></video> -->
+        <div class="vs-empty"><svg class="vs-play" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M20 16.5v15l12-7.5z" fill="currentColor"/></svg></div>
+      </div>
+      <div class="video-slot">
+        <span class="vs-label ours">UBTree</span>
+        <!-- <video src="static/video/ubtree.mp4" autoplay muted loop playsinline preload="metadata"></video> -->
+        <div class="vs-empty"><svg class="vs-play" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M20 16.5v15l12-7.5z" fill="currentColor"/></svg></div>
+      </div>
+    </div>
+    <!-- TODO(coauthors): once the clips are in, add a caption here, e.g.
+    <p class="video-caption">Ling-3.0-flash · 4×H200 · prompt: "…" · AR: — tok/s, UBTree: — tok/s</p> -->
+  </div>
+</section>
+
+<!-- =========================== QUICK START =========================== -->
+<section class="block" id="quickstart">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-no">02 · Quick start</span>
+      <h2>Serve UBTree with SGLang<a class="anchor" href="#quickstart">#</a></h2>
+      <p class="lede">The draft checkpoints run next to their Ling-3.0 target model. You only need to change the speculative-decoding flags at launch.</p>
+    </div>
+
+    <div class="callout">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+      <div>UBTree currently runs from the <a href="https://github.com/AsaHIXx/sglang/tree/asahi/ubtree"><code>asahi/ubtree</code></a> SGLang branch. Upstream integration is in progress in <a href="https://github.com/sgl-project/sglang/pull/44050">sgl-project/sglang#44050</a>.</div>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Target model">
+      <button class="tab" role="tab" id="tab-flash" aria-controls="panel-flash" aria-selected="true">Ling-3.0-flash <span class="pill">4 GPU · TP4</span></button>
+      <button class="tab" role="tab" id="tab-tiny" aria-controls="panel-tiny" aria-selected="false" tabindex="-1">Ling-3.0-tiny <span class="pill">1 GPU</span></button>
+    </div>
+
+    <!-- Commands below are copied from the Hugging Face model cards. Keep them in sync. -->
+    <div class="tabpanel" role="tabpanel" id="panel-flash" aria-labelledby="tab-flash">
+      <div class="step-row">
+        <span class="step-n">1</span>
+        <div>
+          <h4>Install the SGLang branch</h4>
+          <p>Requires Python 3.11+ and a CUDA environment.</p>
+          <div class="code"><div class="code-bar"><span>bash</span><button class="copy" type="button">Copy</button></div><pre><code>git clone -b asahi/ubtree https://github.com/AsaHIXx/sglang.git
+cd sglang
+pip install --upgrade pip
+pip install -e "python"</code></pre></div>
+        </div>
+      </div>
+      <div class="step-row">
+        <span class="step-n">2</span>
+        <div>
+          <h4>Download target + draft</h4>
+          <div class="code"><div class="code-bar"><span>bash</span><button class="copy" type="button">Copy</button></div><pre><code>hf download inclusionAI/Ling-3.0-flash        --local-dir /path/to/ling3-flash
+hf download inclusionAI/Ling-3.0-flash-UBTree --local-dir /path/to/ling3-flash-ubtree</code></pre></div>
+        </div>
+      </div>
+      <div class="step-row">
+        <span class="step-n">3</span>
+        <div>
+          <h4>Launch the server</h4>
+          <p>This is the batch-size-1 benchmark configuration from the model card. <code>--speculative-num-draft-tokens</code> sets the verification-tree size.</p>
+          <div class="code tall"><div class="code-bar"><span>bash · launch_ling3_flash_ubtree.sh</span><button class="copy" type="button">Copy</button></div><pre><code>CUDA_VISIBLE_DEVICES=0,1,2,3 \
+SGLANG_OPT_FA3_VERIFY_METADATA_IN_GRAPH=1 \
+SGLANG_OPT_UBTREE_FA3_TREE_ONLY_MASK=1 \
+python -m sglang.launch_server \
+  --model-path /path/to/ling3-flash \
+  --served-model-name ling3-flash \
+  --tp-size 4 \
+  --host 0.0.0.0 \
+  --port 30000 \
+  --attention-backend fa3 \
+  --page-size 1 \
+  --context-length 4096 \
+  --max-total-tokens 4096 \
+  --max-running-requests 1 \
+  --mem-fraction-static 0.80 \
+  --max-prefill-tokens 4096 \
+  --chunked-prefill-size 4096 \
+  --disable-radix-cache \
+  --mamba-backend triton \
+  --linear-attn-backend triton \
+  --linear-attn-verify-backend triton \
+  --mamba-ssm-dtype float32 \
+  --cuda-graph-backend-prefill disabled \
+  --cuda-graph-backend-decode full \
+  --cuda-graph-bs-decode 1 \
+  --disable-cuda-graph-padding \
+  --tool-call-parser ling3 \
+  --reasoning-parser ling3 \
+  --trust-remote-code \
+  <span class="c-key">--speculative-algorithm UBTREE</span> \
+  <span class="c-key">--speculative-draft-model-path /path/to/ling3-flash-ubtree</span> \
+  <span class="c-key">--speculative-num-draft-tokens 32</span></code></pre></div>
+        </div>
+      </div>
+      <div class="step-row">
+        <span class="step-n">4</span>
+        <div>
+          <h4>Send a request</h4>
+          <div class="code"><div class="code-bar"><span>bash · OpenAI-compatible API</span><button class="copy" type="button">Copy</button></div><pre><code>curl http://localhost:30000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "ling3-flash",
+    "messages": [{"role": "user", "content": "Prove that the square root of 2 is irrational."}],
+    "max_tokens": 1024,
+    "temperature": 0
+  }'</code></pre></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabpanel" role="tabpanel" id="panel-tiny" aria-labelledby="tab-tiny" hidden>
+      <div class="step-row">
+        <span class="step-n">1</span>
+        <div>
+          <h4>Install &amp; download</h4>
+          <div class="code"><div class="code-bar"><span>bash</span><button class="copy" type="button">Copy</button></div><pre><code>git clone -b asahi/ubtree https://github.com/AsaHIXx/sglang.git
+cd sglang
+pip install --upgrade pip
+pip install -e "python"
+
+hf download inclusionAI/Ling-3.0-tiny        --local-dir /path/to/ling3-tiny
+hf download inclusionAI/Ling-3.0-tiny-UBTree --local-dir /path/to/ling3-tiny-ubtree</code></pre></div>
+        </div>
+      </div>
+      <div class="step-row">
+        <span class="step-n">2</span>
+        <div>
+          <h4>Launch on a single GPU</h4>
+          <p>Same flags as the flash model, with <code>--tp-size 1</code> and a 49-node verification tree.</p>
+          <div class="code tall"><div class="code-bar"><span>bash · launch_ling3_tiny_ubtree.sh</span><button class="copy" type="button">Copy</button></div><pre><code>CUDA_VISIBLE_DEVICES=0 \
+SGLANG_OPT_FA3_VERIFY_METADATA_IN_GRAPH=1 \
+SGLANG_OPT_UBTREE_FA3_TREE_ONLY_MASK=1 \
+python -m sglang.launch_server \
+  --model-path /path/to/ling3-tiny \
+  --served-model-name ling3-tiny \
+  --tp-size 1 \
+  --host 0.0.0.0 \
+  --port 30000 \
+  --attention-backend fa3 \
+  --page-size 1 \
+  --context-length 4096 \
+  --max-total-tokens 4096 \
+  --max-running-requests 1 \
+  --mem-fraction-static 0.80 \
+  --max-prefill-tokens 4096 \
+  --chunked-prefill-size 4096 \
+  --disable-radix-cache \
+  --mamba-backend triton \
+  --linear-attn-backend triton \
+  --linear-attn-verify-backend triton \
+  --mamba-ssm-dtype float32 \
+  --cuda-graph-backend-prefill disabled \
+  --cuda-graph-backend-decode full \
+  --cuda-graph-bs-decode 1 \
+  --disable-cuda-graph-padding \
+  --tool-call-parser ling3 \
+  --reasoning-parser ling3 \
+  --trust-remote-code \
+  <span class="c-key">--speculative-algorithm UBTREE</span> \
+  <span class="c-key">--speculative-draft-model-path /path/to/ling3-tiny-ubtree</span> \
+  <span class="c-key">--speculative-num-draft-tokens 49</span></code></pre></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- =========================== WHY =========================== -->
+<section class="block" id="why">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-no">03 · Motivation</span>
+      <h2>Parallel drafters need more than one path<a class="anchor" href="#why">#</a></h2>
+    </div>
+    <div class="two-col">
+      <div class="prose">
+        <p>Block-parallel drafters such as DFlash predict an entire block of future tokens in a single forward pass, which hides most of the drafting latency. But they send the target model <strong>a single draft path</strong>. When the target is uncertain (sampling at temperature 1, reasoning traces, long agentic contexts), that path diverges early and everything after the divergence is wasted.</p>
+        <p>Recent work makes that single path more accurate, using lightweight autoregressive correction heads (Domino, DSpark) or intra-backbone designs (DFlash&nbsp;2), but the target still verifies only one path per round. Tree drafting adds <em>coverage</em>: methods such as SpecInfer, Medusa and EAGLE-2 verify many branches in one target pass, so the accepted continuation <strong>need not be the drafter's top-1</strong>.</p>
+        <p>DDTree and DARTree bring tree drafting to block-parallel drafters, but two limitations remain:</p>
+        <ul>
+          <li><strong>Dependency vs. parallelism.</strong> DARTree restores token dependencies with an autoregressive correction head, which serializes drafting across depths. DDTree stays fully parallel but ignores token dependencies, which limits acceptance length.</li>
+          <li><strong>Train–inference mismatch.</strong> Both reuse drafters trained for single-path drafting to rank the alternative branches of a tree, although those drafters were never optimized to propose plausible alternatives.</li>
+        </ul>
+        <p>UBTree addresses both: <strong>bigram</strong> dependencies scored fully in parallel, and <strong>tree-native</strong> training.</p>
+      </div>
+      <div>
+        <div class="compare" aria-label="Acceptance length comparison" style="margin-top:4px">
+          <div>
+            <h4>Single path</h4>
+            <div class="bad">One guess per position. A miss at position 3 discards positions 3–16.</div>
+            <div class="bars-mini" aria-hidden="true">
+              <div><span>T=0</span><i style="width:64%"></i><span>6.58</span></div>
+              <div><span>T=1</span><i style="width:52%"></i><span>5.35</span></div>
+            </div>
+          </div>
+          <div class="good">
+            <h4>UBTree</h4>
+            <div>Many branches per round, verified together with tree attention. Still lossless.</div>
+            <div class="bars-mini" aria-hidden="true">
+              <div><span>T=0</span><i style="width:100%"></i><span>10.21</span></div>
+              <div><span>T=1</span><i style="width:85%"></i><span>8.70</span></div>
+            </div>
+          </div>
+        </div>
+        <p class="small muted">Average acceptance length τ on Qwen3-8B (instruct), DFlash (block 16) vs. UBTree (64-node tree). UBTree's unigram proposer is itself a DFlash backbone.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =========================== METHOD =========================== -->
+<section class="block" id="method">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-no">04 · Method</span>
+      <h2>Propose in parallel, select in parallel, then build the tree<a class="anchor" href="#method">#</a></h2>
+      <p class="lede">All neural computation happens in two parallel forwards. The only sequential step, tree search, runs on precomputed scores and requires no further neural computation.</p>
+    </div>
+
+    <figure class="figure reveal">
+      <div class="frame"><img src="static/img/ubtree_diagram.png" alt="UBTree architecture (left) and tree-native training (right)" loading="lazy" data-zoom></div>
+      <figcaption><b>Overview.</b> <b>Left:</b> the unigram proposer produces top-<i>K</i> candidates at every draft position in parallel; the bigram selector scores all adjacent candidate transitions in parallel; tree construction uses these scores to build the verification tree. <b>Right:</b> tree-native training combines high-temperature target traces with renormalized KL supervision, so plausible alternatives are encouraged instead of suppressed. Click to enlarge.</figcaption>
+    </figure>
+
+    <div class="stages">
+      <div class="stage reveal">
+        <svg class="glyph" viewBox="0 0 54 32" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="7" rx="2"/><rect x="2" y="13" width="12" height="7" rx="2" opacity=".55"/><rect x="2" y="23" width="12" height="7" rx="2" opacity=".3"/><rect x="21" y="3" width="12" height="7" rx="2"/><rect x="21" y="13" width="12" height="7" rx="2" opacity=".55"/><rect x="21" y="23" width="12" height="7" rx="2" opacity=".3"/><rect x="40" y="3" width="12" height="7" rx="2"/><rect x="40" y="13" width="12" height="7" rx="2" opacity=".55"/><rect x="40" y="23" width="12" height="7" rx="2" opacity=".3"/></g></svg>
+        <span class="st-k">Stage 1</span>
+        <h4>Unigram proposer</h4>
+        <p>A DFlash backbone, conditioned on target hidden features, predicts every position of a γ-token block in one forward. The top-<i>K</i> tokens per position form candidate sets <i>C</i><sub>1</sub>, …, <i>C</i><sub>γ</sub>, which contain <i>K</i><sup>γ</sup> possible paths.</p>
+        <span class="par">⫴ one parallel forward</span>
+      </div>
+      <div class="stage reveal">
+        <svg class="glyph" viewBox="0 0 54 32" aria-hidden="true"><g fill="currentColor"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5" opacity=".5"/><rect x="22" y="4" width="7" height="7" rx="1.5" opacity=".2"/><rect x="4" y="13" width="7" height="7" rx="1.5" opacity=".35"/><rect x="13" y="13" width="7" height="7" rx="1.5" opacity=".8"/><rect x="22" y="13" width="7" height="7" rx="1.5" opacity=".2"/><rect x="4" y="22" width="7" height="7" rx="1.5" opacity=".2"/><rect x="13" y="22" width="7" height="7" rx="1.5" opacity=".2"/><rect x="22" y="22" width="7" height="7" rx="1.5" opacity=".6"/></g><g fill="none" stroke="currentColor" stroke-width="1.5"><path d="M34 16h14M44 12l4 4-4 4"/></g></svg>
+        <span class="st-k">Stage 2</span>
+        <h4>Bigram selector</h4>
+        <p>Scores every predecessor→successor pair δ<sub>i</sub>(a,b) from the proposer hidden state, using <strong>deep codebooks</strong> (MLPs over frozen target embeddings) and learned <strong>depth calibration</strong>. All <i>K</i> + (γ−1)<i>K</i><sup>2</sup> edges are scored at once.</p>
+        <span class="par">⫴ one batched matmul</span>
+      </div>
+      <div class="stage reveal">
+        <svg class="glyph" viewBox="0 0 54 32" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 16 L19 8 M5 16 L19 24 M19 8 L33 4 M19 8 L33 12 M19 24 L33 24 M33 4 L48 4 M33 12 L48 14"/></g><g fill="currentColor"><circle cx="5" cy="16" r="3"/><circle cx="19" cy="8" r="2.5"/><circle cx="19" cy="24" r="2.5"/><circle cx="33" cy="4" r="2.2"/><circle cx="33" cy="12" r="2.2"/><circle cx="33" cy="24" r="2.2"/><circle cx="48" cy="4" r="2"/><circle cx="48" cy="14" r="2"/></g></svg>
+        <span class="st-k">Stage 3</span>
+        <h4>Tree construction &amp; verification</h4>
+        <p>Normalized edge scores are accumulated into path log-probabilities. A depth-wise beam (width <i>W</i>) plus global pruning keeps the best <i>B</i> nodes. The target verifies the whole tree in one pass with tree attention and commits the longest accepted branch.</p>
+        <span class="par seq">↳ no neural computation · lossless</span>
+      </div>
+    </div>
+
+    <h3 id="selector">The bigram selector<a class="anchor" href="#selector">#</a></h3>
+    <div class="two-col">
+      <div class="prose">
+        <p>UBTree builds on DFlash&nbsp;2's low-rank selector and makes two changes. The <strong>codebooks</strong> φ, ψ that embed predecessor and successor tokens are derived from the frozen target embeddings through two bias-free MLPs. They are precomputed into a vocabulary-wide lookup table, so inference cost stays the same. The <strong>combination weights</strong> of proposer logits and selector scores are learned per depth, because the reliability of each signal varies with depth.</p>
+        <p>For a depth <i>i</i>, the full score matrix between the candidates at depth <i>i−1</i> and depth <i>i</i> is a single diagonal-weighted matmul:</p>
+      </div>
+      <div>
+        <div class="mathbox"><span class="mlabel">Deep codebooks</span><div data-tex="\phi(v)=W_{\phi,2}\,\mathrm{SiLU}(W_{\phi,1}e_v),\qquad \psi(v)=W_{\psi,2}\,\mathrm{SiLU}(W_{\psi,1}e_v)"></div></div>
+        <div class="mathbox"><span class="mlabel">Parallel edge scores</span><div data-tex="\boldsymbol\Delta_i=\boldsymbol\Phi_{i-1}\,\mathrm{diag}\!\big(P(h_i)\big)\,\boldsymbol\Psi_i^{\top}\in\mathbb R^{|\mathcal C_{i-1}|\times K}"></div></div>
+        <div class="mathbox"><span class="mlabel">Depth calibration</span><div data-tex="s_i(a,b)=\alpha_i\,u_i(b)+\lambda_i\,\delta_i(a,b),\qquad \alpha_i=e^{\rho_i},\ \lambda_i=e^{\kappa_i}"></div></div>
+      </div>
+    </div>
+
+    <h3 id="training">Tree-native training<a class="anchor" href="#training">#</a></h3>
+    <div class="two-col">
+      <div class="prose">
+        <p>A tree is only as good as its <em>second-best</em> branches. Standard drafter training (cross-entropy on rollouts at the inference temperature) rewards the greedy token and pushes every alternative down, including the plausible ones the tree wants to keep.</p>
+        <p>UBTree changes two things:</p>
+        <ul>
+          <li><strong>High-temperature targets.</strong> Training data is regenerated at <i>T</i><sub>train</sub> ≥ <i>T</i><sub>infer</sub>, which spreads supervision over plausible alternatives. A single checkpoint trained at <i>T</i><sub>train</sub>=1 serves both <i>T</i><sub>infer</sub>=0 and 1.</li>
+          <li><strong>Renormalized KL.</strong> The selector matches the target distribution renormalized over the proposer's top-<i>K</i> support, rather than a hard label. A small auxiliary cross-entropy term on the proposer (β = 0.1) preserves its candidate distribution.</li>
+        </ul>
+      </div>
+      <div>
+        <div class="mathbox"><span class="mlabel">Objective</span><div data-tex="\mathcal L=\mathrm{KL}\big(\widetilde p_i\,\|\,\widetilde q_i\big)-\beta\log q_i(y_i^{*}\mid x_{\le t}),\qquad \beta=0.1"></div></div>
+        <div class="mathbox"><span class="mlabel">Renormalized over the top-K candidate set</span><div data-tex="\widetilde p_i(v)=\frac{e^{z_i(v)/T_{\mathrm{train}}}}{\sum_{b\in\mathcal C_i}e^{z_i(b)/T_{\mathrm{train}}}},\qquad \widetilde q_i(v)=\frac{e^{s_i(y^{*}_{i-1},v)}}{\sum_{b\in\mathcal C_i}e^{s_i(y^{*}_{i-1},b)}}"></div></div>
+      </div>
+    </div>
+
+    <h3 id="hybrid">Tree verification on hybrid-attention models<a class="anchor" href="#hybrid">#</a></h3>
+    <div class="prose">
+      <p>Both production targets use hybrid attention: Ling3-Flash with Kimi Delta Attention layers and Qwen3.8-27B with Gated DeltaNet layers. Linear-attention layers carry a recurrent state rather than a per-token KV cache, so in our SGLang implementation each tree node inherits the recurrent and convolution states of its parent during verification. Only the states and KV entries along the accepted path are committed, which keeps verification lossless for these architectures.</p>
+    </div>
+  </div>
+</section>
+
+<!-- =========================== RESULTS =========================== -->
+<section class="block" id="results">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-no">05 · Results</span>
+      <h2>Faster at every scale we tried<a class="anchor" href="#results">#</a></h2>
+      <p class="lede">Speedup is end-to-end decoding speedup over target-only autoregressive decoding. τ is the average number of tokens accepted per verification round, including the bonus token.</p>
+    </div>
+
+    <!-- ---- Academic benchmark explorer ---- -->
+    <h3 id="res-academic" style="margin-top:8px">Academic benchmarks<a class="anchor" href="#res-academic">#</a></h3>
+    <p class="small muted" style="margin-top:-4px">Qwen3 targets · 1×H200 · batch size 1 · Transformers backend · tree budget <i>B</i>=64, <i>W</i>=12, <i>K</i>=64. Domino numbers are paper-reported.</p>
+
+    <div class="controls" id="acad-controls">
+      <div class="ctl"><span class="ctl-label">Target</span>
+        <div class="seg" data-ctl="model">
+          <button type="button" data-v="Qwen3-8B|Instruct" aria-pressed="true">Qwen3-8B</button>
+          <button type="button" data-v="Qwen3-4B|Instruct" aria-pressed="false">Qwen3-4B</button>
+          <button type="button" data-v="Qwen3-4B|Reasoning" aria-pressed="false">Qwen3-4B thinking</button>
+        </div>
+      </div>
+      <div class="ctl"><span class="ctl-label">Temp</span>
+        <div class="seg" data-ctl="T">
+          <button type="button" data-v="0" aria-pressed="true">T = 0</button>
+          <button type="button" data-v="1" aria-pressed="false">T = 1</button>
+        </div>
+      </div>
+      <div class="ctl"><span class="ctl-label">Metric</span>
+        <div class="seg" data-ctl="metric">
+          <button type="button" data-v="0" aria-pressed="true">Speedup</button>
+          <button type="button" data-v="1" aria-pressed="false">τ</button>
+        </div>
+      </div>
+    </div>
+    <div class="chips" id="acad-bench" role="group" aria-label="Benchmark"></div>
+    <div class="card">
+      <div class="card-head"><span class="card-title" id="acad-title"></span><span class="card-sub" id="acad-sub"></span></div>
+      <div class="chart" id="acad-chart"></div>
+    </div>
+    <details class="more">
+      <summary>Full table for this setting</summary>
+      <div class="table-wrap" id="acad-table"></div>
+    </details>
+
+    <ul class="takeaways">
+      <li><span>Average speedup of <strong>6.88× / 6.94×</strong> on Qwen3-4B / 8B with greedy decoding and <strong>6.00× / 5.84×</strong> at temperature 1. UBTree beats DARTree in all 28 benchmark settings and improves average speedup over it by 7.4–13.4%.</span></li>
+      <li><span>With thinking enabled on Qwen3-4B, UBTree is <strong>25.3% / 29.9%</strong> faster than DDTree at T = 0 / 1. The gap is largest at high temperature.</span></li>
+    </ul>
+
+    <!-- ---- Concurrency ---- -->
+    <h3 id="res-serving">Concurrent serving in SGLang<a class="anchor" href="#res-serving">#</a></h3>
+    <p class="small muted" style="margin-top:-4px">SGLang · BF16 · 1×H200 · CUDA Graphs · T = 1. Tree methods use load-adaptive budgets <i>B</i>/<i>W</i>. Bars show output tokens/s; labels show speedup over AR at the same concurrency.</p>
+    <div class="controls">
+      <div class="ctl"><span class="ctl-label">Target</span>
+        <div class="seg" id="conc-model">
+          <button type="button" data-v="Qwen3-8B" aria-pressed="true">Qwen3-8B</button>
+          <button type="button" data-v="Qwen3-4B" aria-pressed="false">Qwen3-4B</button>
+        </div>
+      </div>
+    </div>
+    <div class="grid-4" id="conc-grid"></div>
+    <ul class="takeaways">
+      <li><span>Highest throughput at every concurrency level, <strong>7.0–16.3%</strong> ahead of the next-best method. At C = 32, UBTree is still 7.3–7.7% ahead of the strongest single-path drafter, while DDTree falls behind.</span></li>
+    </ul>
+
+    <!-- ---- Production ---- -->
+    <h3 id="res-production">Production-scale models<a class="anchor" href="#res-production">#</a></h3>
+    <p class="small muted" style="margin-top:-4px">SGLang · TP4 on 4×H200 · batch size 1 · thinking disabled. Cells show speedup with τ in grey.</p>
+    <div class="table-wrap" id="prod-table"></div>
+    <ul class="takeaways">
+      <li><span>Highest acceptance length in <strong>14/14</strong> model–benchmark pairs and highest speedup in 12/14. Average speedup <strong>5.36×</strong> on Ling3-Flash (124B-A5.1B MoE) and <strong>4.78×</strong> on Qwen3.8-27B, both hybrid-attention architectures.</span></li>
+    </ul>
+
+    <!-- ---- Long context ---- -->
+    <h3 id="res-long">Long context and agentic traces<a class="anchor" href="#res-long">#</a></h3>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head"><span class="card-title">LongBench-v2 · Ling3-Flash</span><span class="card-sub">τ by prompt length · 401 requests</span></div>
+        <div class="legend" id="long-legend-a"></div>
+        <div class="chart" id="long-a"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-title">SWE-bench replay · Ling3-Flash</span><span class="card-sub">τ by accumulated context · 1,482 requests</span></div>
+        <div class="legend" id="long-legend-b"></div>
+        <div class="chart" id="long-b"></div>
+      </div>
+    </div>
+    <ul class="takeaways">
+      <li><span>UBTree has the highest τ in every context bin: <strong>+34.6–42.1%</strong> over DSpark on LongBench-v2 and <strong>+29.0–37.8%</strong> on SWE-bench. At 192–260K prompt tokens it still accepts 5.80 tokens per round, about the same as for the shortest prompts.</span></li>
+    </ul>
+
+    <!-- ---- Latency ---- -->
+    <h3 id="res-latency">Where the time goes<a class="anchor" href="#res-latency">#</a></h3>
+    <div class="two-col">
+      <div class="prose">
+        <p>A parallel selector also makes drafting cheaper. On Qwen3-4B / GSM8K, UBTree cuts draft post-processing (LM head, candidate selection, selector scoring and tree construction) from <strong>3.36 ms to 1.38 ms per round (−58.8%)</strong> compared with DARTree's autoregressive correction head. It also reaches a slightly higher τ (12.58 vs. 12.50), which brings time per output token from 2.41 to <strong>2.21 ms</strong>.</p>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-title">Latency per verification round</span><span class="card-sub">ms · Qwen3-4B · GSM8K · H200</span></div>
+        <div class="legend" id="lat-legend"></div>
+        <div class="chart" id="lat-chart"></div>
+      </div>
+    </div>
+
+    <!-- ---- Ablations ---- -->
+    <h3 id="res-ablation">Ablations<a class="anchor" href="#res-ablation">#</a></h3>
+    <p class="small muted" style="margin-top:-4px">Qwen3-4B instruct · averages over 7 benchmarks.</p>
+    <div class="grid-2">
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Selector &amp; training (T<sub>infer</sub> = 0)</th><th>Speedup</th><th>τ</th></tr></thead>
+          <tbody>
+            <tr><td>DFlash 2 selector + tree</td><td>5.95×</td><td>8.82</td></tr>
+            <tr><td>UBTree selector + tree</td><td>6.57×</td><td>9.86</td></tr>
+            <tr class="ours"><td>&nbsp;&nbsp;+ T<sub>train</sub> = 1 (full UBTree)</td><td>6.88×</td><td>10.23</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Objective</th><th>β</th><th>T=0 speedup / τ</th><th>T=1 speedup / τ</th></tr></thead>
+          <tbody>
+            <tr><td>Hard-label CE</td><td>0.1</td><td>6.84× / 10.08</td><td>5.99× / 8.93</td></tr>
+            <tr class="ours"><td>Renormalized KL</td><td>0.1</td><td>6.88× / 10.23</td><td>6.00× / 9.01</td></tr>
+            <tr><td>Renormalized KL</td><td>0</td><td>6.87× / 10.14</td><td>6.01× / 9.01</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="small muted">A training-temperature sweep over T<sub>train</sub> ∈ {0.8, 1.0, 1.1, 1.2} gives the best average τ at T<sub>train</sub> = 1.0 for both inference temperatures (10.23 at T = 0, 9.01 at T = 1).</p>
+  </div>
+</section>
+
+<!-- =========================== MODELS =========================== -->
+<section class="block" id="models">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-no">06 · Models</span>
+      <h2>Released checkpoints<a class="anchor" href="#models">#</a></h2>
+      <p class="lede">Draft models for the Ling-3.0 family, on Hugging Face under the MIT license. Each one shares token embeddings and the LM head with its target.</p>
+    </div>
+    <div class="models">
+      <a class="model" href="https://huggingface.co/inclusionAI/Ling-3.0-flash-UBTree">
+        <div class="model-top">
+          <div><div class="model-name">inclusionAI/Ling-3.0-flash-UBTree</div><div class="model-for">Draft for Ling-3.0-flash · TP4</div></div>
+          <span class="badge">B16</span>
+        </div>
+        <div class="kv">
+          <div><b>482M</b><span>draft params</span></div>
+          <div><b>5</b><span>backbone layers</span></div>
+          <div><b>3.43×</b><span>avg. speedup*</span></div>
+        </div>
+      </a>
+      <a class="model" href="https://huggingface.co/inclusionAI/Ling-3.0-tiny-UBTree">
+        <div class="model-top">
+          <div><div class="model-name">inclusionAI/Ling-3.0-tiny-UBTree</div><div class="model-for">Draft for Ling-3.0-tiny · single GPU</div></div>
+          <span class="badge">B16</span>
+        </div>
+        <div class="kv">
+          <div><b>183M</b><span>draft params</span></div>
+          <div><b>5</b><span>backbone layers</span></div>
+          <div><b>3.17×</b><span>avg. speedup*</span></div>
+        </div>
+      </a>
+    </div>
+
+    <div class="controls" style="margin-top:22px">
+      <div class="ctl"><span class="ctl-label">Checkpoint</span>
+        <div class="seg" id="rel-model">
+          <button type="button" data-v="Ling-3.0-flash" aria-pressed="true">Ling-3.0-flash</button>
+          <button type="button" data-v="Ling-3.0-tiny" aria-pressed="false">Ling-3.0-tiny</button>
+        </div>
+      </div>
+      <span class="small muted" id="rel-setup"></span>
+    </div>
+    <div class="table-wrap" id="rel-table"></div>
+    <p class="small muted">*Mean over the six benchmarks in the table above, as reported on the model cards: SGLang, block size 16, concurrency 1, BF16, greedy decoding with thinking disabled, and a 32-node (flash) or 49-node (tiny) verification tree. Cells show τ / end-to-end speedup over target-only autoregressive decoding. This serving setup differs from the paper's production experiments (64-node tree), so the numbers are not directly comparable.</p>
+  </div>
+</section>
+
+<!-- =========================== CITATION =========================== -->
+<section class="block bib" id="citation">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-no">07 · Citation</span>
+      <h2>Cite UBTree<a class="anchor" href="#citation">#</a></h2>
+    </div>
+    <div class="code"><div class="code-bar"><span>bibtex</span><button class="copy" type="button">Copy</button></div><pre><code>@article{liang2026ubtree,
+  title   = {UBTree: Parallel Tree Drafting via Unigram and Bigram Models for Speculative Decoding},
+  author  = {Liang, Chumeng and Wang, Linxuan and Peng, Xinyu and Liu, Huabin and Chen, Yuxin and Liu, Ge and Lin, Guang and Song, Qifan and Li, Jianguo},
+  journal = {arXiv preprint arXiv:2609.39972},
+  year    = {2026},
+  url     = {https://arxiv.org/abs/2609.39972}
+}</code></pre></div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <img src="static/img/logoinclusionai.png" alt="Inclusion AI">
+    <div>© 2026 The UBTree Authors · Model weights released under the MIT License</div>
+  </div>
+</footer>
+
+<div class="tooltip" id="tooltip" role="status" aria-live="polite"></div>
+<div class="lightbox" id="lightbox" aria-hidden="true"><img alt=""></div>
+
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script defer src="static/js/data.js"></script>
+<script defer src="static/js/main.js"></script>
+</body>
+</html>

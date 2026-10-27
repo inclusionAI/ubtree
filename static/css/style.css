@@ -281,26 +281,12 @@ h2:hover .anchor, h3:hover .anchor { opacity: 1; }
 .ph ul { margin: .3em 0 0; padding-left: 1.2em; font-size: 0.9rem; }
 
 /* ---------- video ---------- */
-.video-grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
-@media (min-width: 760px) { .video-grid { grid-template-columns: 1fr 1fr; } }
+.video-grid { display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr); }
 .video-slot {
-  position: relative; aspect-ratio: 16 / 10; border-radius: 14px; overflow: hidden; background: var(--code-bg);
+  aspect-ratio: 36 / 19; border-radius: 14px; overflow: hidden; background: #0c0c0c;
   border: 1px solid var(--line);
 }
-.video-slot video { width: 100%; height: 100%; object-fit: cover; display: block; }
-.video-slot .vs-label {
-  position: absolute; top: 12px; left: 12px; z-index: 2; font-family: var(--f-mono); font-size: 0.74rem; color: #e8ece6;
-  background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.14); padding: 3px 10px; border-radius: 999px;
-}
-.video-slot .vs-label.ours { background: rgba(15,138,99,.75); }
-.video-slot .vs-empty {
-  position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px;
-  color: #a9b8b0; font-size: 0.88rem;
-  background-image: linear-gradient(transparent 95%, rgba(255,255,255,.04) 95%), linear-gradient(90deg, transparent 95%, rgba(255,255,255,.04) 95%);
-  background-size: 22px 22px;
-}
-.vs-play { width: 56px; height: 56px; color: rgba(232, 236, 230, 0.55); }
-.video-caption { font-size: 0.86rem; color: var(--muted); margin-top: 10px; }
+.video-slot video { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 /* ---------- quick start: tabs & code ---------- */
 .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 0; overflow-x: auto; scrollbar-width: none; }

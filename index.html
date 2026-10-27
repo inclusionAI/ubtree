@@ -25,7 +25,6 @@
 
 <!--
   Numbers in charts/tables live in static/js/data.js.
-  The only remaining placeholder is the video demo (search data-ph="video-demo").
 -->
 
 <header class="topbar" id="topbar">
@@ -158,30 +157,22 @@
     <div class="sec-head">
       <span class="sec-no">01 · Demo</span>
       <h2>See it decode<a class="anchor" href="#demo">#</a></h2>
-      <p class="lede">Same prompt, same target model, same hardware. Left: plain autoregressive decoding. Right: UBTree speculative decoding in SGLang.</p>
     </div>
 
-    <!--
-      TODO(coauthors) — VIDEO DEMO
-      1. Put the clips in static/video/ (e.g. ar.mp4 and ubtree.mp4, H.264, muted, ≤ 10 MB each).
-      2. In each .video-slot below, delete the .vs-empty block and uncomment the <video> tag.
-      3. Update the caption (model, GPU, prompt, measured tokens/s).
-      For a single side-by-side clip, delete one slot and drop the .video-grid class.
-    -->
-    <div class="video-grid" data-ph="video-demo">
+    <div class="video-grid">
       <div class="video-slot">
-        <span class="vs-label">Autoregressive</span>
-        <!-- <video src="static/video/ar.mp4" autoplay muted loop playsinline preload="metadata"></video> -->
-        <div class="vs-empty"><svg class="vs-play" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M20 16.5v15l12-7.5z" fill="currentColor"/></svg></div>
+        <video autoplay muted loop playsinline controls preload="metadata" aria-label="Ling3 Tiny decoding comparison">
+          <source src="static/video/ling3-tiny.mp4" type="video/mp4">
+          <a href="static/video/ling3-tiny.mp4">Watch the Ling3 Tiny comparison.</a>
+        </video>
       </div>
       <div class="video-slot">
-        <span class="vs-label ours">UBTree</span>
-        <!-- <video src="static/video/ubtree.mp4" autoplay muted loop playsinline preload="metadata"></video> -->
-        <div class="vs-empty"><svg class="vs-play" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M20 16.5v15l12-7.5z" fill="currentColor"/></svg></div>
+        <video autoplay muted loop playsinline controls preload="metadata" aria-label="Ling3 Flash decoding comparison">
+          <source src="static/video/ling3-flash.mp4" type="video/mp4">
+          <a href="static/video/ling3-flash.mp4">Watch the Ling3 Flash comparison.</a>
+        </video>
       </div>
     </div>
-    <!-- TODO(coauthors): once the clips are in, add a caption here, e.g.
-    <p class="video-caption">Ling-3.0-flash · 4×H200 · prompt: "…" · AR: — tok/s, UBTree: — tok/s</p> -->
   </div>
 </section>
 

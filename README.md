@@ -19,18 +19,16 @@ static/css/style.css  design tokens (light/dark) and components
 static/js/data.js     every number shown in charts and tables
 static/js/main.js     draft-tree walkthrough, charts, tabs, copy buttons
 static/img/           figures (rendered from the paper PDFs) and logo
-static/video/         demo clips go here
+static/video/         Ling3 Tiny and Flash comparison videos
 ```
 
-## Remaining placeholder: video demo
+## Demo videos
 
-All text on the page is release-ready. The only unfinished part is the video demo in section 01 (`data-ph="video-demo"` in `index.html`):
+Section 01 contains two full-width, vertically stacked videos: `static/video/ling3-tiny.mp4` and `static/video/ling3-flash.mp4`. Each contains AR, DFlash, DSpark and UBTree for the same target model. They autoplay muted and loop, with native playback and fullscreen controls.
 
-1. Put the clips in `static/video/` (e.g. `ar.mp4` and `ubtree.mp4`, H.264, muted, ≤ 10 MB each).
-2. In each `.video-slot`, delete the `.vs-empty` block and uncomment the `<video>` tag.
-3. Uncomment the caption below the videos and fill in the model, hardware, prompt and measured tokens/s.
+The H.264 videos preserve every source GIF frame and its duration, including the final hold, at 1440×760 / 20 FPS. Both use the same 0.25× presentation speed; the seconds shown inside them remain the original request timestamps. The examples use the unchanged HumanEval `anti_shuffle` (Tiny) and `bf` (Flash) prompts. These are selected real SSE captures with complete four-method output token equality, not aggregate benchmark results.
 
-For a single side-by-side clip, delete one slot and drop the `video-grid` class.
+Source GIFs: `web/ubtree/assets/ling3-tiny-humaneval-045.gif` and `ling3-flash-humaneval-012.gif` in the FlashFlow repository, branch `codex/ubtree-promo-qwen3-4b`, commit `644c2bb`. Full timing and selection provenance remain in that repository's `web/ubtree/REAL_BENCHMARK_SHOWCASES.md` and `data/ling-real-benchmark-playback.json`.
 
 ## Later additions
 

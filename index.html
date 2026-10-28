@@ -29,10 +29,15 @@
 
 <header class="topbar" id="topbar">
   <div class="wrap">
-    <a class="brand" href="#top" aria-label="UBTree home">
-      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--spruce)"/><g stroke="var(--paper)" stroke-width="2.2" fill="none" stroke-linecap="round"><path d="M7 16 L15 9 M7 16 L15 23 M15 9 L24 6 M15 9 L24 13 M15 23 L24 23"/></g><g fill="var(--paper)"><circle cx="7" cy="16" r="2.6"/><circle cx="15" cy="9" r="2.3"/><circle cx="15" cy="23" r="2.3"/><circle cx="24" cy="6" r="2"/><circle cx="24" cy="13" r="2"/><circle cx="24" cy="23" r="2"/></g></svg>
-      UBTree
-    </a>
+    <div class="brand-lockup">
+      <a class="brand" href="#top" aria-label="UBTree home">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--spruce)"/><g stroke="var(--paper)" stroke-width="2.2" fill="none" stroke-linecap="round"><path d="M7 16 L15 9 M7 16 L15 23 M15 9 L24 6 M15 9 L24 13 M15 23 L24 23"/></g><g fill="var(--paper)"><circle cx="7" cy="16" r="2.6"/><circle cx="15" cy="9" r="2.3"/><circle cx="15" cy="23" r="2.3"/><circle cx="24" cy="6" r="2"/><circle cx="24" cy="13" r="2"/><circle cx="24" cy="23" r="2"/></g></svg>
+        UBTree
+      </a>
+      <a class="brand-partner" href="https://www.inclusion-ai.org/" aria-label="Inclusion AI website">
+        <img src="static/img/inclusion-ai-logo-black.png" alt="Inclusion AI" width="528" height="58">
+      </a>
+    </div>
     <nav class="nav" aria-label="Sections">
       <a href="#demo">Demo</a>
       <a href="#quickstart">Quick start</a>
@@ -62,7 +67,8 @@
           <span>Chumeng Liang<sup>1,2,*</sup></span>,
           <span>Linxuan Wang<sup>1,3,*</sup></span>,
           <span>Xinyu Peng<sup>1,*</sup></span>,
-          <span>Huabin Liu<sup>1</sup></span>,
+          <span>Huabin Liu<sup>1,†</sup></span>,
+          <span>Xiaoxu Guo<sup>1</sup></span>,
           <span>Yuxin Chen<sup>2</sup></span>,
           <span>Ge Liu<sup>2</sup></span>,
           <span>Guang Lin<sup>3</sup></span>,
@@ -70,7 +76,7 @@
           <span>Jianguo Li<sup>1,†</sup></span>
         </p>
         <p class="affils"><sup>1</sup>Inclusion AI &nbsp;·&nbsp; <sup>2</sup>University of Illinois Urbana-Champaign &nbsp;·&nbsp; <sup>3</sup>Purdue University</p>
-        <p class="notes"><sup>*</sup>Equal contribution &nbsp; <sup>†</sup>Corresponding author</p>
+        <p class="notes"><sup>*</sup>Equal contribution &nbsp; <sup>†</sup>Corresponding authors</p>
 
         <div class="links">
           <a class="btn primary" href="https://arxiv.org/abs/2609.39972">
@@ -115,7 +121,7 @@
       <div class="stat">
         <div class="v">6.94<small>×</small></div>
         <div class="k">Avg. speedup, Qwen3-8B</div>
-        <div class="d">Greedy decoding, 7 benchmarks, 1×H200</div>
+        <div class="d">Greedy decoding, 7 benchmarks</div>
       </div>
       <div class="stat">
         <div class="v">28<small>/28</small></div>
@@ -125,7 +131,7 @@
       <div class="stat">
         <div class="v">5.36<small>×</small></div>
         <div class="k">Ling3-Flash 124B in SGLang</div>
-        <div class="d">vs. 4.50× for DSpark, TP4 on 4×H200</div>
+        <div class="d">vs. 4.50× for DSpark, TP4</div>
       </div>
       <div class="stat">
         <div class="v">+37.6<small>%</small></div>
@@ -457,7 +463,7 @@ python -m sglang.launch_server \
 
     <!-- ---- Academic benchmark explorer ---- -->
     <h3 id="res-academic" style="margin-top:8px">Academic benchmarks<a class="anchor" href="#res-academic">#</a></h3>
-    <p class="small muted" style="margin-top:-4px">Qwen3 targets · 1×H200 · batch size 1 · Transformers backend · tree budget <i>B</i>=64, <i>W</i>=12, <i>K</i>=64. Domino numbers are paper-reported.</p>
+    <p class="small muted" style="margin-top:-4px">Qwen3 targets · batch size 1 · Transformers backend · tree budget <i>B</i>=64, <i>W</i>=12, <i>K</i>=64. Domino numbers are paper-reported.</p>
 
     <div class="controls" id="acad-controls">
       <div class="ctl"><span class="ctl-label">Target</span>
@@ -497,7 +503,7 @@ python -m sglang.launch_server \
 
     <!-- ---- Concurrency ---- -->
     <h3 id="res-serving">Concurrent serving in SGLang<a class="anchor" href="#res-serving">#</a></h3>
-    <p class="small muted" style="margin-top:-4px">SGLang · BF16 · 1×H200 · CUDA Graphs · T = 1. Tree methods use load-adaptive budgets <i>B</i>/<i>W</i>. Bars show output tokens/s; labels show speedup over AR at the same concurrency.</p>
+    <p class="small muted" style="margin-top:-4px">SGLang · BF16 · CUDA Graphs · T = 1. Tree methods use load-adaptive budgets <i>B</i>/<i>W</i>. Bars show output tokens/s; labels show speedup over AR at the same concurrency.</p>
     <div class="controls">
       <div class="ctl"><span class="ctl-label">Target</span>
         <div class="seg" id="conc-model">
@@ -513,7 +519,7 @@ python -m sglang.launch_server \
 
     <!-- ---- Production ---- -->
     <h3 id="res-production">Production-scale models<a class="anchor" href="#res-production">#</a></h3>
-    <p class="small muted" style="margin-top:-4px">SGLang · TP4 on 4×H200 · batch size 1 · thinking disabled. Cells show speedup with τ in grey.</p>
+    <p class="small muted" style="margin-top:-4px">SGLang · TP4 · batch size 1 · thinking disabled. Cells show speedup with τ in grey.</p>
     <div class="table-wrap" id="prod-table"></div>
     <ul class="takeaways">
       <li><span>Highest acceptance length in <strong>14/14</strong> model–benchmark pairs and highest speedup in 12/14. Average speedup <strong>5.36×</strong> on Ling3-Flash (124B-A5.1B MoE) and <strong>4.78×</strong> on Qwen3.8-27B, both hybrid-attention architectures.</span></li>
@@ -544,7 +550,7 @@ python -m sglang.launch_server \
         <p>A parallel selector also makes drafting cheaper. On Qwen3-4B / GSM8K, UBTree cuts draft post-processing (LM head, candidate selection, selector scoring and tree construction) from <strong>3.36 ms to 1.38 ms per round (−58.8%)</strong> compared with DARTree's autoregressive correction head. It also reaches a slightly higher τ (12.58 vs. 12.50), which brings time per output token from 2.41 to <strong>2.21 ms</strong>.</p>
       </div>
       <div class="card">
-        <div class="card-head"><span class="card-title">Latency per verification round</span><span class="card-sub">ms · Qwen3-4B · GSM8K · H200</span></div>
+        <div class="card-head"><span class="card-title">Latency per verification round</span><span class="card-sub">ms · Qwen3-4B · GSM8K</span></div>
         <div class="legend" id="lat-legend"></div>
         <div class="chart" id="lat-chart"></div>
       </div>
@@ -635,7 +641,7 @@ python -m sglang.launch_server \
     </div>
     <div class="code"><div class="code-bar"><span>bibtex</span><button class="copy" type="button">Copy</button></div><pre><code>@article{liang2026ubtree,
   title   = {UBTree: Parallel Tree Drafting via Unigram and Bigram Models for Speculative Decoding},
-  author  = {Liang, Chumeng and Wang, Linxuan and Peng, Xinyu and Liu, Huabin and Chen, Yuxin and Liu, Ge and Lin, Guang and Song, Qifan and Li, Jianguo},
+  author  = {Liang, Chumeng and Wang, Linxuan and Peng, Xinyu and Liu, Huabin and Guo, Xiaoxu and Chen, Yuxin and Liu, Ge and Lin, Guang and Song, Qifan and Li, Jianguo},
   journal = {arXiv preprint arXiv:2609.39972},
   year    = {2026},
   url     = {https://arxiv.org/abs/2609.39972}

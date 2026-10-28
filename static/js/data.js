@@ -6,7 +6,7 @@ window.UBTREE_DATA = {
   benchmarks: ["GSM8K", "MATH-500", "AIME", "HumanEval", "MBPP", "LiveCodeBench", "MT-Bench", "Avg."],
   benchmarksShort: ["GSM8K", "M-500", "AIME", "HE", "MBPP", "LCB", "MT-B", "Avg."],
 
-  // Table 1 — 1×H200, batch size 1, transformers backend. Budget in parentheses.
+  // Table 1 — batch size 1, transformers backend. Budget in parentheses.
   // paper: true marks paper-reported numbers (Domino).
   academic: [
     {
@@ -79,7 +79,7 @@ window.UBTREE_DATA = {
     }
   ],
 
-  // Table 2 — SGLang, BF16, 1×H200, CUDA Graphs, T_infer = 1. [tokens/s, speedup] per concurrency.
+  // Table 2 — SGLang, BF16, CUDA Graphs, T_infer = 1. [tokens/s, speedup] per concurrency.
   concurrency: {
     levels: [1, 8, 16, 32],
     models: {
@@ -102,7 +102,7 @@ window.UBTREE_DATA = {
     }
   },
 
-  // Table 3 — production-scale, SGLang, TP4 on 4×H200, batch size 1, thinking disabled.
+  // Table 3 — production-scale, SGLang, TP4, batch size 1, thinking disabled.
   production: [
     {
       model: "Ling3-Flash", detail: "124B-A5.1B MoE · hybrid attention (Kimi Delta Attention)",
